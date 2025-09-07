@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "760838913725",
+    "project_id": "bookdiscoveryapp-69875",
+    "storage_bucket": "bookdiscoveryapp-69875.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:760838913725:android:a58e927f61c9d9e82201d4",
+        "android_client_info": {
+          "package_name": "com.booksApp.books_discovery_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "760838913725-24f5u1950kv1enrqo5lhrdevbgedtvhv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbhnhjG8jq2cPEZvSk6BUCEYYaNVHQhz4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "760838913725-24f5u1950kv1enrqo5lhrdevbgedtvhv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
