@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:books_discovery_app/core/app_colors.dart';
 import 'package:books_discovery_app/providers/LogInController.dart';
 import 'package:books_discovery_app/routes/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_storage/get_storage.dart';
+
+import 'features/home/profile_screen.dart';
 
 
 @RoutePage()
@@ -17,6 +22,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  final box = GetStorage();
   @override
   void initState() {
     super.initState();
@@ -32,6 +38,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     _controller.forward();
     /// call function
     checkAuthAndNavigate();
+
+    // Load image after build is complete
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final path = box.read("filepath");
+      if (path != null && path.isNotEmpty) {
+        ref.read(imageProvider.notifier).state = File(path);
+      }
+    });
+
   }
 
   /// ****************************************************

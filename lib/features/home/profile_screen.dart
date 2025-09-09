@@ -7,6 +7,7 @@ import 'package:books_discovery_app/core/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../routes/app_router.dart';
@@ -14,6 +15,9 @@ import '../../routes/app_router.dart';
 final firebaseUserProvider = StreamProvider<User?>(
       (ref) => FirebaseAuth.instance.authStateChanges(),
 );
+
+// add provider
+final imageProvider = StateProvider<File?> ((ref) => null);
 
 @RoutePage()
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -29,6 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   final ImagePicker _picker = ImagePicker();
   late AnimationController _animationController;
   late Animation<double> _sizeAnimation;
+  final GetStorage box = GetStorage();
 
   @override
   void initState() {
@@ -40,6 +45,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _sizeAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final path = box.read("filepath");
+      if (path != null && path.isNotEmpty) {
+        ref.read(imageProvider.notifier).state = File(path);
+      }
+    });
+
   }
 
   Future<void> _pickImage() async {
@@ -47,7 +60,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final XFile? pickedFile =
       await _picker.pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
+        final path = pickedFile.path;
+        final file = File(path);
         setState(() => _imageFile = File(pickedFile.path));
+        box.write("filepath", path);
+        ref.read(imageProvider.notifier).state = file;
         _animationController.forward().then((_) => _animationController.reverse());
       }
     } catch (e) {
@@ -79,6 +96,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(firebaseUserProvider);
+    final _imageFile = ref.watch(imageProvider);
 
     return Scaffold(
       backgroundColor: AppColors.offWhite,

@@ -2,12 +2,17 @@
 
 import 'package:auto_route/auto_route.dart';
 import 'package:books_discovery_app/core/app_colors.dart';
+import 'package:books_discovery_app/features/home/profile_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/book_model.dart';
 import '../../providers/booksControllers.dart';
 import '../../routes/app_router.dart';
+
+/// *****************************************
+ final viewModeProvider = StateProvider<bool>((ref) => true);
+/// ****************************************
 
 @RoutePage()
 class HomeScreen extends ConsumerStatefulWidget {
@@ -23,12 +28,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int selectedFilterIndex = 0;
   final TextEditingController searchController = TextEditingController();
 
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bookProvider);
+    final imageFile = ref.watch(imageProvider);
+    final isListView = ref.watch(viewModeProvider);
 
     // Determine which list to show based on selected filter
     List<Book> filteredBooks;
+
     if (selectedFilterIndex == 0) {
       filteredBooks = state.allBooks;
     } else if (selectedFilterIndex == 1) {
@@ -59,12 +68,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                   CircleAvatar(
                     backgroundColor:AppColors.primary,
-                    backgroundImage: user?.photoURL != null
+
+                    // backgroundImage: user?.photoURL != null
+                    //     ? NetworkImage(user!.photoURL!)
+                    //     : null,
+                    // child: user?.photoURL == null
+                    //     ? const Icon(Icons.person, color: Colors.white)
+                    //     : null,
+
+                    backgroundImage: imageFile != null
+                        ? FileImage(imageFile)
+                        : (user?.photoURL != null
                         ? NetworkImage(user!.photoURL!)
-                        : null,
-                    child: user?.photoURL == null
+                        : null),
+                    child: imageFile == null && user?.photoURL == null
                         ? const Icon(Icons.person, color: Colors.white)
                         : null,
+
                   ),
                 ],
               ),
@@ -139,37 +159,96 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 10),
 
               // Filters
+              // Row(
+              //   children: List.generate(
+              //     filters.length,
+              //         (index) => GestureDetector(
+              //       onTap: () {
+              //         setState(() {
+              //           selectedFilterIndex = index;
+              //         });
+              //       },
+              //       child: Container(
+              //         margin: const EdgeInsets.only(right: 12),
+              //         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              //         decoration: BoxDecoration(
+              //           color: selectedFilterIndex == index
+              //               ? AppColors.primary
+              //               : AppColors.grey,
+              //           borderRadius: BorderRadius.circular(20),
+              //         ),
+              //         child: Text(
+              //           filters[index],
+              //           style: TextStyle(
+              //             color: selectedFilterIndex == index
+              //                 ? Colors.white
+              //                 : Colors.black,
+              //           ),
+              //         ),
+              //       ),
+              //     ),
+              //   ),
+              // ),
+
+
               Row(
-                children: List.generate(
-                  filters.length,
-                      (index) => GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedFilterIndex = index;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: selectedFilterIndex == index
-                            ? AppColors.primary
-                            : AppColors.grey,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        filters[index],
-                        style: TextStyle(
-                          color: selectedFilterIndex == index
-                              ? Colors.white
-                              : Colors.black,
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(
+                          filters.length,
+                              (index) => GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                selectedFilterIndex = index;
+                              });
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: selectedFilterIndex == index
+                                    ? AppColors.primary
+                                    : AppColors.grey,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                filters[index],
+                                style: TextStyle(
+                                  color: selectedFilterIndex == index
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+
+                  // View toggle buttons
+                  IconButton(
+                    icon: Icon(Icons.list,
+                        color: isListView ? AppColors.primary : Colors.grey),
+                    onPressed: () {
+                      ref.read(viewModeProvider.notifier).state = true;
+                    },
+                  ),
+
+                  IconButton(
+                    icon: Icon(Icons.grid_view,
+                        color: !isListView ? AppColors.primary : Colors.grey),
+                    onPressed: () {
+                      ref.read(viewModeProvider.notifier).state = false;
+                    },
+                  ),
+                ],
               ),
 
+/// *************************************************************
               const SizedBox(height: 10),
 
               // Books List
@@ -194,16 +273,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     );
                   } else {
-                    return ListView.builder(
-                      itemCount: filteredBooks.length,
-                      itemBuilder: (context, index) {
-                        final book = filteredBooks[index];
-                        return _buildBookItem(book);
-                      },
-                    );
+                    if (isListView) {
+                      return ListView.builder(
+                        itemCount: filteredBooks.length,
+                        itemBuilder: (context, index) {
+                          final book = filteredBooks[index];
+                          return _buildBookItem(book);
+                        },
+                      );
+                    } else {
+                      // Grid View – changed UI
+                      return GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2, // 2 items per row
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 0.7, // Adjust height vs width
+                        ),
+                        itemCount: filteredBooks.length,
+                        itemBuilder: (context, index) {
+                          final book = filteredBooks[index];
+                          return _buildBookGridItem(book);
+                        },
+                        padding: const EdgeInsets.all(12),
+                      );
+                    }
+
                   }
                 }),
               ),
+
+
+
             ],
           ),
         ),
@@ -211,7 +312,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// Category Card Widget
+  /// **************************************Category Card Widget
+
   Widget _categoryCard(String title, Color color, IconData icon) {
     return Container(
       width: 150,
@@ -232,7 +334,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// Book Item Widget
+  ///*********************************** Book Item Widget
   Widget _buildBookItem(Book book) {
     return Card(
       color: AppColors.white,
@@ -264,5 +366,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+
+  /// ************************************ GridItem
+
+  Widget _buildBookGridItem(Book book) {
+    return Card(
+      color: AppColors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          context.pushRoute(BookDetailRoute(book: book));
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: book.thumbnail.isNotEmpty
+                    ? Image.network(book.thumbnail, width: 50, fit: BoxFit.cover)
+                    : Container(
+                  width: 50,
+                  height: 50,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.book),
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                book.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ),
+
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                book.authors.join(", "),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8,vertical: 3),
+              child: Text(
+                "₹${book.pageCount}",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, color: AppColors.primary),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+/// *************************************************************
+
+
 
 }

@@ -1,170 +1,239 @@
 
 import 'package:auto_route/auto_route.dart';
-import 'package:books_discovery_app/core/app_colors.dart';
+import 'package:books_discovery_app/features/home/profile_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_colors.dart';
+import '../../models/book_model.dart';
+import '../../providers/booksControllers.dart';
+import '../../routes/app_router.dart';
+import '../Search/bottom_sheet_filter.dart';
+
+/// ------------------ FILTER STATE ------------------
 final selectedCategoriesProvider = StateProvider<List<String>>((ref) => []);
 final priceRangeProvider = StateProvider<RangeValues>((ref) => const RangeValues(90, 200));
+final isGridViewProvider = StateProvider<bool>((ref) => false);
 
+/// ------------------ SEARCH SCREEN ------------------
 @RoutePage()
 class SearchScreen extends ConsumerWidget {
   const SearchScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedCategories = ref.watch(selectedCategoriesProvider);
-    final priceRange = ref.watch(priceRangeProvider);
-
-    final categories = [
-      "Fiction",
-      "Sci-fi",
-      "Biography",
-      "Music",
-      "Non-fiction",
-      "Mathematics"
-    ];
+    final isGridView = ref.watch(isGridViewProvider);
+    final imageFile = ref.watch(imageProvider);
+    final user = FirebaseAuth.instance.currentUser;
+    final bookState = ref.watch(bookProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      body: Align(
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 10,
-                offset: Offset(0, -4),
-              )
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => context.router.pop(),
-                  ),
-                  const Text(
-                    "Search Filter",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 48), // for alignment
-                ],
-              ),
-              const SizedBox(height: 10),
+      backgroundColor: AppColors.white,
 
-              // Categories
-              const Text("Categories", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: categories.map((category) {
-                  final isSelected = selectedCategories.contains(category);
-                  return GestureDetector(
-                    onTap: () {
-                      ref.read(selectedCategoriesProvider.notifier).state =
-                      isSelected
-                          ? (selectedCategories..remove(category)).toList()
-                          : (selectedCategories..add(category)).toList();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        category,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
+      /// *********************************************** AppBar
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        title: const Text(
+          "Search Book",
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        actions: [
 
-              // Price
-              const Text("Price", style: TextStyle(fontWeight: FontWeight.bold)),
-              RangeSlider(
-                activeColor: Colors.blue,
-                inactiveColor: Colors.grey.shade300,
-                values: priceRange,
-                min: 0,
-                max: 500,
-                divisions: 50,
-                labels: RangeLabels(
-                  "₹${priceRange.start.toInt()}",
-                  "₹${priceRange.end.toInt()}",
+          IconButton(
+            icon: const Icon(Icons.filter_list, color: AppColors.primary, size: 28),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
                 ),
-                onChanged: (values) {
-                  ref.read(priceRangeProvider.notifier).state = values;
-                },
+                builder: (context) => const FilterBottomSheet(),
+              );
+            },
+          ),
+
+          const SizedBox(width: 5),
+
+          IconButton(
+            icon: Icon(isGridView ? Icons.list : Icons.grid_view,
+                color: isGridView ? AppColors.primary : AppColors.googleRed, size: 28),
+            onPressed: () {
+              ref.read(isGridViewProvider.notifier).state = !isGridView;
+            },
+          ),
+
+          const SizedBox(width: 5),
+
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.primary,
+              backgroundImage: imageFile != null
+                  ? FileImage(imageFile)
+                  : (user?.photoURL != null ? NetworkImage(user!.photoURL!) as ImageProvider : null),
+              child: (imageFile == null && user?.photoURL == null)
+                  ? const Icon(Icons.add_a_photo, color: Colors.white)
+                  : null,
+            ),
+          ),
+
+          const SizedBox(width: 10),
+        ],
+        elevation: 2,
+      ),
+
+      /// *********************************************** Body
+      body: SafeArea(
+        child: Builder(builder: (context) {
+          if (bookState.isLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            );
+          } else if (bookState.error.isNotEmpty) {
+            return Center(
+              child: Text(
+                bookState.error,
+                style: const TextStyle(color: AppColors.googleRed),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            );
+          } else {
+            final selectedCategories = ref.watch(selectedCategoriesProvider);
+            final priceRange = ref.watch(priceRangeProvider);
+
+            final books = bookState.allBooks.where((b) {
+              final price = b.pageCount ?? 0;
+              final matchesCategory = selectedCategories.isEmpty
+                  ? true
+                  : selectedCategories.any((cat) => b.categories.contains(cat));
+              final matchesPrice = price >= priceRange.start && price <= priceRange.end;
+              return matchesCategory && matchesPrice;
+            }).toList();
+
+            if (books.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("₹${priceRange.start.toInt()}"),
-                    Text("₹${priceRange.end.toInt()}"),
+                    Icon(Icons.search_off, size: 80, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text(
+                      "No books found",
+                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
+              );
+            }
 
-              // Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Colors.blue),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        ref.read(selectedCategoriesProvider.notifier).state = [];
-                        ref.read(priceRangeProvider.notifier).state = const RangeValues(90, 200);
-                      },
-                      child: const Text("Clear", style: TextStyle(color: Colors.blue)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        // Apply filter action
-                        context.router.pop();
-                      },
-                      child: const Text("Apply Filter", style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                ],
+            return ref.watch(isGridViewProvider)
+                ? GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.65,
               ),
-              const SizedBox(height: 10),
-            ],
-          ),
+              itemCount: books.length,
+              itemBuilder: (context, index) {
+                final book = books[index];
+                return _buildBookGridItem(context, book);
+              },
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: books.length,
+              itemBuilder: (context, index) {
+                final book = books[index];
+                return _buildBookItem(context, book);
+              },
+            );
+          }
+        }),
+      ),
+
+    );
+  }
+
+  /// ******************************************************* List Item
+  Widget _buildBookItem(BuildContext context, Book book) {
+    return Card(
+      color: AppColors.white,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: book.thumbnail.isNotEmpty
+            ? Image.network(book.thumbnail, width: 50, fit: BoxFit.cover)
+            : Container(
+          width: 50,
+          height: 50,
+          color: Colors.grey[300],
+          child: const Icon(Icons.book),
+        ),
+        title: Text(book.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(book.authors.join(", ")),
+        trailing: Text("₹${book.pageCount}",
+            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+        onTap: () {
+          context.pushRoute(BookDetailRoute(book: book));
+        },
+      ),
+    );
+  }
+
+  /// ******************************************************* Grid Item
+  Widget _buildBookGridItem(BuildContext context, Book book) {
+    return Card(
+      color: AppColors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          context.pushRoute(BookDetailRoute(book: book));
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: book.thumbnail.isNotEmpty
+                    ? Image.network(book.thumbnail, fit: BoxFit.cover)
+                    : Container(
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.book),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(book.title,
+                  maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(book.authors.join(", "),
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              child: Text("₹${book.pageCount}",
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, color: AppColors.primary)),
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );
   }
+
+  /// **********************************************************
 }
+
+
+
+

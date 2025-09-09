@@ -1,5 +1,6 @@
 
 import 'package:auto_route/annotations.dart';
+import 'package:books_discovery_app/features/home/profile_screen.dart';
 import 'package:contacts_service/contacts_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -8,8 +9,7 @@ import '../../core/app_colors.dart';
 import '../../providers/contactsControllers.dart';
 
 /// ********************* /// Provider /// *********************
-final contactsProvider =
-StateNotifierProvider<ContactsViewModel, ContactsState>(
+final contactsProvider = StateNotifierProvider<ContactsViewModel, ContactsState>(
         (ref) => ContactsViewModel());
 
 @RoutePage()
@@ -110,6 +110,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(contactsProvider);
+    final _imageFile = ref.watch(imageProvider);
     final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -129,11 +130,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
 
             CircleAvatar(
               backgroundColor:AppColors.primary,
-              backgroundImage: user?.photoURL != null
-                  ? NetworkImage(user!.photoURL!)
-                  : null,
-              child: user?.photoURL == null
-                  ? const Icon(Icons.person, color: Colors.white)
+              backgroundImage: _imageFile != null
+                  ? FileImage(_imageFile)
+                  : (user?.photoURL != null
+                  ? NetworkImage(user!.photoURL!) as ImageProvider
+                  : null),
+              child: (_imageFile == null && user?.photoURL == null)
+                  ? const Icon(Icons.add_a_photo, color: Colors.white)
                   : null,
             ),
           ],
@@ -195,8 +198,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                     radius: 25,
                     backgroundColor: AppColors.primary,
                     child: Text(
-                      (contact.initials() ?? "?")
-                          .toUpperCase(),
+                      (contact.initials()).toUpperCase(),
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold),

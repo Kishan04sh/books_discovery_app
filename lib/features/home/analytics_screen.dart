@@ -1,23 +1,30 @@
+import 'dart:io';
+
 import 'package:auto_route/annotations.dart';
+import 'package:books_discovery_app/features/home/profile_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:sticky_headers/sticky_headers.dart';
 
 import '../../core/app_colors.dart';
 
 @RoutePage()
-class AnalyticsScreen extends StatefulWidget {
+class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
 
   @override
-  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+  ConsumerState<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen>
+class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnim;
+  final box = GetStorage();
+  File? imageFile;
 
   @override
   void initState() {
@@ -25,6 +32,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
     _controller.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final path = box.read("filepath");
+      if (path != null && path is String && path.isNotEmpty) {
+        final file = File(path);
+        ref.read(imageProvider.notifier).state = file;
+        setState(() {
+          imageFile = file;
+        });
+        print("Image path loaded: $path");
+      }
+    });
+
+
   }
 
   /// **********************************************
@@ -61,7 +82,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   Widget build(BuildContext context) {
 
 
-    return Scaffold(
+      return Scaffold(
       body: ListView(
         children: [
           StickyHeader(
@@ -84,6 +105,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   /// ***********************************************Top Sticky Header
   Widget _buildHeader() {
     final user = FirebaseAuth.instance.currentUser;
+    final imageFile = ref.watch(imageProvider);
     return Container(
       color: AppColors.primary,
       padding: const EdgeInsets.only(top: 50, left: 20, right: 20, bottom: 20),
@@ -109,12 +131,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           CircleAvatar(
             radius: 35,
             backgroundColor:AppColors.primary,
-            backgroundImage: user?.photoURL != null
-                ? NetworkImage(user!.photoURL!)
-                : null,
-            child: user?.photoURL == null
+            backgroundImage: (imageFile != null && imageFile.path.isNotEmpty)
+                ? FileImage(imageFile)
+                : (user?.photoURL != null ? NetworkImage(user!.photoURL!) : null),
+
+            child: (imageFile == null || imageFile.path.isEmpty) && user?.photoURL == null
                 ? const Icon(Icons.person, color: Colors.white)
                 : null,
+
+
+
           ),
 
         ],
